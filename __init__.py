@@ -8,14 +8,18 @@ from mycroft.skills.context import adds_context, removes_context
 from random import randrange, choice
 import os
 
+MAX_RETRIES = 3
+
 class MultiplicationTables(MycroftSkill):
     def __init__(self):
         MycroftSkill.__init__(self)
         super().__init__()
 
+    def getRandomInt(self):
+            return randrange(1,11)
 
     def initialize(self):
-        self.table = 0                  # multiplication table to practise. Initial value is 0. -1 = any table. 1 to 10 are specific number tables.
+        self.table = 0                  # multiplication table to practise. Initial value is 0. -1 = all tables. 1 to 10 are specific number tables.
         self.currentAnswer = 0          # Answer the user has to guess for the current operation.
         self.retries = 0                # Stores number of retries for current multiplication
         self.numbers = {}               # Dictionary of values that will be used to multiply.
@@ -27,7 +31,7 @@ class MultiplicationTables(MycroftSkill):
 
 
     def initializeTables(self):
-        # any table
+        # all tables
         if self.table == -1:
             # create dictionary with key = each multiplication table to ask, which has a value = list of numbers to multiply by that table.
             for i in range(1,11):
@@ -37,12 +41,18 @@ class MultiplicationTables(MycroftSkill):
 
 
     def nextNum(self):
+        """
+        Returns the first multiplication table figuring as a key in self.numbers (lowest number) with first number (lowest) on its list associated as value.
+        """
+        # if all tables
         if self.table == -1:
             if len(self.numbers) != 0:
+                currentTable = list(self.numbers.keys())[0]
+                number = self.numbers[currentTable].pop(0)
                 if len(list(self.numbers.values())[0])==0:
                     del self.numbers[list(self.numbers.keys())[0]]
-                currentTable = list(self.numbers.keys())[0]
-                return currentTable, self.numbers[currentTable].pop(0)
+                return currentTable, number
+        # if specific table
         else:
             if self.numbers[self.table] != []:
                 return self.table, self.numbers[self.table].pop(0)
@@ -51,20 +61,21 @@ class MultiplicationTables(MycroftSkill):
 
     def randomNum(self):
         """
-        Returns a random int from the list of remaining numbers for that table.
+        Returns an int representing a multiplication table (random key from self.numbers) and random int from the list of remaining numbers for that table.
         """
-        # if any table
+        # if all tables
         if self.table == -1:
             # if dictionary is empty
             if len(self.numbers) != 0:
-                # delete empty entries
-                for entry in self.numbers:
-                    if self.numbers[entry] == []:
-                        self.numbers.pop(entry)
                 # currentTable is a random key from the ones inside numbers dictionary
                 currentTable = choice(list(self.numbers.keys()))
                 # delete a value from the list associated with currentTable key
-                return currentTable, self.numbers[currentTable].pop(randrange(0,len(self.numbers[currentTable])))
+                number = self.numbers[currentTable].pop(randrange(0,len(self.numbers[currentTable])))
+                # delete empty entries
+                for entry in list(self.numbers):
+                    if self.numbers[entry] == []:
+                        del self.numbers[entry]
+                return currentTable, number
         # if specific table
         else:
             if self.numbers[self.table] != []:
@@ -94,9 +105,8 @@ class MultiplicationTables(MycroftSkill):
 
     def endGame(self, forcedFinish=False):
         self.playing = False
-        self.remove_context('InGame')
         if (not forcedFinish):
-            if self.retries == 3:
+            if self.retries == MAX_RETRIES:
                 self.failed +=1
                 self.speak_dialog('end.answer', {'answer':self.currentAnswer, 'failed':self.failed})
             else:
@@ -113,10 +123,9 @@ class MultiplicationTables(MycroftSkill):
         answer = 0
         while self.playing:
             # if there are no more numbers remaining to multiply
-            if (self.table != -1 and len(self.numbers[self.table])==0) and (not self.repeat):
-                self.endGame()                 
-            elif(self.table == -1 and len(self.numbers) == 0)  and (not self.repeat):
-                self.endGame()   
+            if ((self.table != -1 and len(self.numbers[self.table])==0) and (not self.repeat)) or \
+                ((self.table == -1 and len(self.numbers) == 0)  and (not self.repeat)):
+                self.endGame()
             else:
                 # if repeat is False, new numbers to ask are obtained.
                 if not self.repeat:
@@ -125,7 +134,7 @@ class MultiplicationTables(MycroftSkill):
                     else:
                         n1, n2 = self.randomNum()
 
-                    if self.retries == 3:
+                    if self.retries == MAX_RETRIES:
                         self.failed +=1
                         answer = self.get_response('give.answer', {'answer':self.currentAnswer, 'n1': n1, 'n2': n2}, on_fail = 'repeat', num_retries=2)
                         
@@ -134,109 +143,103 @@ class MultiplicationTables(MycroftSkill):
                     self.retries = 0
                     self.currentAnswer = n1*n2
 
+                    if self.voc_match(answer, 'finish'):
+                        # for random multiplications we count an interrupted finish as a normal finish
+                        self.endGame(False if self.table == -1 else True)
+                        break
+
                 if self.analyseAnswer(answer):
                     self.repeat = False
-                    #self.speak_dialog('correct.answer')
                 else:
                     self.repeat = True
 
                     if answer is not None:
                         self.retries +=1
-                        if self.retries == 3:
+                        if self.retries == MAX_RETRIES:
                             # this way, on the next iteration, a new operation will be asked and the correct answer for this one will be given.
                             self.repeat = False
-                        # we keep ansking until 3 retries
+                        # we keep asking until MAX_RETRIES retries
                         else:
                             answer = self.get_response('wrong.answer',{'n1': n1, 'n2': n2}, on_fail = 'repeat', num_retries=2)
                     else:
                         self.endGame(True)
 
-
-    @intent_handler(IntentBuilder('InitTablesIntent').require('ask').require('tables').optionally('multiply').optionally('numbers').optionally('any').optionally('unordered'))
-    def handle_multiplication_tables(self, message):
+    def handle_utterance(self, message, response):
         numberCheck = message.data.get('numbers')
         anyCheck = message.data.get('any')
         unorderedCheck = message.data.get('unordered')
 
         if unorderedCheck:
             self.ordered = False
-        
-        # if skill does not detect any keyword
+
+        if response:
+            if message.data.get('ordered'):
+                self.ordered = True
+
+        # if no number is detected
         if numberCheck is None and anyCheck is None:
-            self.set_context('InitTablesContext')
-            self.speak_dialog('which', expect_response=True)
-            #Completar
-        # if skill detects both any tables or specific tables keyword
+            if (response and self.askAgain) or not response:
+                self.set_context('InitTablesContext')
+                if response:
+                    self.askAgain = False
+                    self.speak_dialog('which.table', expect_response=True)
+                else:
+                    self.speak_dialog('which', expect_response=True)
+        # both any and specific are asked
         elif numberCheck is not None and anyCheck is not None:
             self.set_context('InitTablesContext')
             self.speak_dialog('which.table', expect_response=True)
         # skill detects only one of them
         else:
-            # keyword of specific number
-            if numberCheck is not None:
+            # specific table
+            if numberCheck:
                 self.table = extract_number(numberCheck, lang = self.lang)
-                # if number can't be extracted
                 if (self.table not in range(1,11)):
-                    self.set_context('InitTablesContext')
-                    self.speak_dialog('which.table', expect_response=True)
+                        self.set_context('InitTablesContext')
+                        self.speak_dialog('which.table', expect_response=True)
+                        self.table = 0
                 else:
                     self.speak_dialog('number.response', {'number': str(self.table)})
-            # keyword of any table
+            # any table
             else:
-                self.table = -1
-                self.speak_dialog('any.response')
+                self.table = self.getRandomInt()
+                self.speak_dialog('number.any.response', {'number': str(self.table)})
             if self.table:
                 self.playing = True
-                self.set_context('InGame')
                 self.initializeTables()
                 self.askOperation()
 
+    @intent_handler(IntentBuilder('InitTablesIntent').require('ask').require('tables').optionally('multiply').optionally('numbers').optionally('any').optionally('unordered'))
+    def handle_multiplication_tables(self, message):
+        """
+        Initialize game. If user has not specified, Mycroft will ask which table.
+        """
+        LOG.info("PRIMER")
+        self.handle_utterance(message, False)
 
     @intent_handler(IntentBuilder('WhichTableIntent').optionally('any').optionally('numbers').optionally('unordered').optionally('ordered').require('InitTablesContext').build())
     def handle_multiplication_tables_response(self, message):
+        """
+        User provides details about game.
+        """
+        LOG.info("SEGON")
         self.remove_context('InitTablesContext')
-        numberCheck = message.data.get('numbers')
-        unorderedCheck = message.data.get('unordered')
-        orderedCheck = message.data.get('ordered')
+        self.handle_utterance(message, True)
+    
+    @intent_handler("ask.multiplications.intent")
+    def handle_ask_multiplications(self, message):
+        """
+        Ask random multiplications recursively until 100 operations are asked or users cancels.
+        """
+        LOG.info("TERCER")
 
-        # check ordered
-        if unorderedCheck:
-            self.ordered = False
-        # if both ordered and unordered are mentioned, ordered will have priority
-        if orderedCheck:
-            self.ordered = True
-
-        # if no number is detected
-        if numberCheck is None:
-            # check if any table option is asked
-            anyCheck = message.data.get('any')
-            # any table
-            if anyCheck is not None:
-                self.set_context('InGame')
-                self.table = -1
-                self.initializeTables()
-                self.speak_dialog('any.response')
-                self.playing = True
-                self.askOperation()
-            # no specific table nor any table
-            else:
-                if self.askAgain:
-                    self.askAgain = False
-                    self.set_context('InitTablesContext')
-                    self.speak_dialog('which.table', expect_response=True)
-        # specific table detected
-        else:
-            self.table = extract_number(numberCheck, lang = self.lang)
-
-            if (self.table not in range(1,11)):
-                    self.set_context('InitTablesContext')
-                    self.speak_dialog('which.table', expect_response=True)
-            else:
-                self.set_context('InGame')
-                self.initializeTables()
-                self.speak_dialog('number.response', {'number': str(self.table)})
-                self.playing = True
-                self.askOperation()     
+        self.table = -1
+        self.speak_dialog('any.response')
+        self.playing = True
+        # Disordered operations by default
+        self.ordered = True if self.voc_match(message.data['utterance'], 'ordered') else False
+        self.initializeTables()
+        self.askOperation()
 
 
 def create_skill():
