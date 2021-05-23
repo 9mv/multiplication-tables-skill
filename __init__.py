@@ -186,13 +186,17 @@ class MultiplicationTables(MycroftSkill):
                 else:
                     self.speak_dialog('which', expect_response=True)
         # both any and specific are asked
-        elif numberCheck is not None and anyCheck is not None:
+        elif (numberCheck is not None and anyCheck is not None) and numberCheck != "1":
             self.set_context('InitTablesContext')
             self.speak_dialog('which.table', expect_response=True)
         # skill detects only one of them
         else:
+            # any table
+            if anyCheck:
+                self.table = self.getRandomInt()
+                self.speak_dialog('number.any.response', {'number': str(self.table)})
             # specific table
-            if numberCheck:
+            else:
                 self.table = extract_number(numberCheck, lang = self.lang)
                 if (self.table not in range(1,11)):
                         self.set_context('InitTablesContext')
@@ -200,10 +204,7 @@ class MultiplicationTables(MycroftSkill):
                         self.table = 0
                 else:
                     self.speak_dialog('number.response', {'number': str(self.table)})
-            # any table
-            else:
-                self.table = self.getRandomInt()
-                self.speak_dialog('number.any.response', {'number': str(self.table)})
+
             if self.table:
                 self.playing = True
                 self.initializeTables()
