@@ -8,9 +8,6 @@ from mycroft.skills.context import adds_context, removes_context
 from random import randrange, choice
 import time
 
-# number of maximum attempts to provide a wrong answer before counting it as failed.
-MAX_RETRIES = 3
-
 class MultiplicationTables(MycroftSkill):
     def __init__(self):
         MycroftSkill.__init__(self)
@@ -25,6 +22,7 @@ class MultiplicationTables(MycroftSkill):
         self.table = 0                  # multiplication table to practise. Initial value is 0. -1 = all tables. 1 to 10 are specific number tables.
         self.currentAnswer = 0          # Answer the user has to guess for the current operation.
         self.retries = 0                # Stores number of retries for current multiplication
+        self.MAX_RETRIES = self.settings.get('max_retries', 3)  # number of maximum attempts to provide a wrong answer before counting it as failed.
         self.failed = 0                 # Count of failed multiplications
         self.numbers = {}               # Dictionary of values that will be used to multiply.
         self.playing = False            # Bool that indicates if the user is currently in-game.
@@ -109,7 +107,7 @@ class MultiplicationTables(MycroftSkill):
     def endGame(self, forcedFinish=False):
         self.playing = False
         if (not forcedFinish):
-            if self.retries == MAX_RETRIES:
+            if self.retries == self.MAX_RETRIES:
                 self.failed +=1
                 self.speak_dialog('end.answer', {'answer':self.currentAnswer, 'failed':self.failed})
             else:
@@ -137,7 +135,7 @@ class MultiplicationTables(MycroftSkill):
                     else:
                         n1, n2 = self.randomNum()
 
-                    if self.retries == MAX_RETRIES:
+                    if self.retries == self.MAX_RETRIES:
                         self.failed +=1
                         answer = self.get_response('give.answer', {'answer':self.currentAnswer, 'n1': n1, 'n2': n2}, on_fail = 'repeat', num_retries=2)
                         
@@ -159,7 +157,7 @@ class MultiplicationTables(MycroftSkill):
 
                     if answer is not None:
                         self.retries +=1
-                        if self.retries == MAX_RETRIES:
+                        if self.retries == self.MAX_RETRIES:
                             # this way, on the next iteration, a new operation will be asked and the correct answer for this one will be given.
                             self.repeat = False
                         # we keep asking until MAX_RETRIES retries
@@ -242,6 +240,7 @@ class MultiplicationTables(MycroftSkill):
         Ask random multiplications recursively until 100 operations are asked or user cancels game.
         """
         LOG.info("TERCER")
+        LOG.info(self.MAX_RETRIES)
 
         self.table = -1
         self.speak_dialog('any.response')
