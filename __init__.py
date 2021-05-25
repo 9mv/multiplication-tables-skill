@@ -8,6 +8,9 @@ from mycroft.skills.context import adds_context, removes_context
 from random import randrange, choice
 import time
 
+def validator(utterance):
+    return True if extract_number(utterance) else False
+
 class MultiplicationTables(MycroftSkill):
     def __init__(self):
         MycroftSkill.__init__(self)
@@ -137,10 +140,10 @@ class MultiplicationTables(MycroftSkill):
 
                     if self.retries == self.MAX_RETRIES:
                         self.failed +=1
-                        answer = self.get_response('give.answer', {'answer':self.currentAnswer, 'n1': n1, 'n2': n2}, on_fail = 'repeat', num_retries=2)
+                        answer = self.get_response('give.answer', {'answer':self.currentAnswer, 'n1': n1, 'n2': n2}, validator = validator, on_fail = 'repeat', num_retries=2)
                         
                     else:
-                        answer = self.get_response('multiplication', {'n1': n1, 'n2': n2}, on_fail = 'repeat', num_retries=2)
+                        answer = self.get_response('multiplication', {'n1': n1, 'n2': n2}, validator = validator, on_fail = 'repeat', num_retries=2)
                     self.retries = 0
                     self.currentAnswer = n1*n2
 
@@ -162,7 +165,7 @@ class MultiplicationTables(MycroftSkill):
                             self.repeat = False
                         # we keep asking until MAX_RETRIES retries
                         else:
-                            answer = self.get_response('wrong.answer',{'n1': n1, 'n2': n2}, on_fail = 'repeat', num_retries=2)
+                            answer = self.get_response('wrong.answer',{'n1': n1, 'n2': n2}, validator = validator, on_fail = 'repeat', num_retries=2)
                     else:
                         self.endGame(True)
 
