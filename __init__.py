@@ -6,8 +6,9 @@ from mycroft.util.parse import extract_number, extract_numbers
 from mycroft.skills.context import adds_context, removes_context
 #from lingua_franca.parse import extract_number
 from random import randrange, choice
-import os
+import time
 
+# number of maximum attempts to provide a wrong answer before counting it as failed.
 MAX_RETRIES = 3
 
 class MultiplicationTables(MycroftSkill):
@@ -15,19 +16,21 @@ class MultiplicationTables(MycroftSkill):
         MycroftSkill.__init__(self)
         super().__init__()
 
+
     def getRandomInt(self):
-            return randrange(1,11)
+        return randrange(1,11)
+
 
     def initialize(self):
         self.table = 0                  # multiplication table to practise. Initial value is 0. -1 = all tables. 1 to 10 are specific number tables.
         self.currentAnswer = 0          # Answer the user has to guess for the current operation.
         self.retries = 0                # Stores number of retries for current multiplication
+        self.failed = 0                 # Count of failed multiplications
         self.numbers = {}               # Dictionary of values that will be used to multiply.
         self.playing = False            # Bool that indicates if the user is currently in-game.
         self.ordered = True             # Ordered by default.
         self.repeat = False             # True when Mycroft has to repeat the question.
         self.askAgain = True            # Variable to avoid asking the question of which table again when already repeated once.
-        self.failed = 0                 # Count of failed multiplications
 
 
     def initializeTables(self):
@@ -143,10 +146,11 @@ class MultiplicationTables(MycroftSkill):
                     self.retries = 0
                     self.currentAnswer = n1*n2
 
-                    if self.voc_match(answer, 'finish'):
-                        # for random multiplications we count an interrupted finish as a normal finish
-                        self.endGame(False if self.table == -1 else True)
-                        break
+                # check if the user has spoken any finish keyword to end the game
+                if self.voc_match(answer, 'finish'):
+                    # for random multiplications we count an interrupted finish as a normal finish
+                    self.endGame(False if self.table == -1 else True)
+                    break
 
                 if self.analyseAnswer(answer):
                     self.repeat = False
@@ -163,6 +167,7 @@ class MultiplicationTables(MycroftSkill):
                             answer = self.get_response('wrong.answer',{'n1': n1, 'n2': n2}, on_fail = 'repeat', num_retries=2)
                     else:
                         self.endGame(True)
+
 
     def handle_utterance(self, message, response):
         numberCheck = message.data.get('numbers')
@@ -185,7 +190,7 @@ class MultiplicationTables(MycroftSkill):
                     self.speak_dialog('which.table', expect_response=True)
                 else:
                     self.speak_dialog('which', expect_response=True)
-        # both any and specific are asked
+        # both any and specific are asked. if numberCheck is == 0 it might be an erroneous table of 1 detection.
         elif (numberCheck is not None and anyCheck is not None) and numberCheck != "1":
             self.set_context('InitTablesContext')
             self.speak_dialog('which.table', expect_response=True)
@@ -206,9 +211,11 @@ class MultiplicationTables(MycroftSkill):
                     self.speak_dialog('number.response', {'number': str(self.table)})
 
             if self.table:
+                time.sleep(5)
                 self.playing = True
                 self.initializeTables()
                 self.askOperation()
+
 
     @intent_handler(IntentBuilder('InitTablesIntent').require('ask').require('tables').optionally('multiply').optionally('numbers').optionally('any').optionally('unordered'))
     def handle_multiplication_tables(self, message):
@@ -218,6 +225,7 @@ class MultiplicationTables(MycroftSkill):
         LOG.info("PRIMER")
         self.handle_utterance(message, False)
 
+
     @intent_handler(IntentBuilder('WhichTableIntent').optionally('any').optionally('numbers').optionally('unordered').optionally('ordered').require('InitTablesContext').build())
     def handle_multiplication_tables_response(self, message):
         """
@@ -226,16 +234,18 @@ class MultiplicationTables(MycroftSkill):
         LOG.info("SEGON")
         self.remove_context('InitTablesContext')
         self.handle_utterance(message, True)
-    
+
+
     @intent_handler("ask.multiplications.intent")
     def handle_ask_multiplications(self, message):
         """
-        Ask random multiplications recursively until 100 operations are asked or users cancels.
+        Ask random multiplications recursively until 100 operations are asked or user cancels game.
         """
         LOG.info("TERCER")
 
         self.table = -1
         self.speak_dialog('any.response')
+        time.sleep(5)
         self.playing = True
         # Disordered operations by default
         self.ordered = True if self.voc_match(message.data['utterance'], 'ordered') else False
