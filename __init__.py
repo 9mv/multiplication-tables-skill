@@ -8,8 +8,6 @@ from mycroft.skills.context import adds_context, removes_context
 from random import randrange, choice
 import time
 
-def validator(utterance):
-    return True if extract_number(utterance) else False
 
 class MultiplicationTables(MycroftSkill):
     def __init__(self):
@@ -32,6 +30,10 @@ class MultiplicationTables(MycroftSkill):
         self.ordered = True             # Ordered by default.
         self.repeat = False             # True when Mycroft has to repeat the question.
         self.askAgain = True            # Variable to avoid asking the question of which table again when already repeated once.
+
+
+    def validator(self, utterance):
+        return True if extract_number(utterance) or self.voc_match(utterance, 'finish') else False
 
 
     def initializeTables(self):
@@ -140,10 +142,10 @@ class MultiplicationTables(MycroftSkill):
 
                     if self.retries == self.MAX_RETRIES:
                         self.failed +=1
-                        answer = self.get_response('give.answer', {'answer':self.currentAnswer, 'n1': n1, 'n2': n2}, validator = validator, on_fail = 'repeat', num_retries=2)
+                        answer = self.get_response('give.answer', {'answer':self.currentAnswer, 'n1': n1, 'n2': n2}, validator = self.validator, on_fail = 'repeat', num_retries=2)
                         
                     else:
-                        answer = self.get_response('multiplication', {'n1': n1, 'n2': n2}, validator = validator, on_fail = 'repeat', num_retries=2)
+                        answer = self.get_response('multiplication', {'n1': n1, 'n2': n2}, validator = self.validator, on_fail = 'repeat', num_retries=2)
                     self.retries = 0
                     self.currentAnswer = n1*n2
 
@@ -165,7 +167,7 @@ class MultiplicationTables(MycroftSkill):
                             self.repeat = False
                         # we keep asking until MAX_RETRIES retries
                         else:
-                            answer = self.get_response('wrong.answer',{'n1': n1, 'n2': n2}, validator = validator, on_fail = 'repeat', num_retries=2)
+                            answer = self.get_response('wrong.answer',{'n1': n1, 'n2': n2}, validator = self.validator, on_fail = 'repeat', num_retries=2)
                     else:
                         self.endGame(True)
 
@@ -174,6 +176,16 @@ class MultiplicationTables(MycroftSkill):
         numberCheck = message.data.get('numbers')
         anyCheck = message.data.get('any')
         unorderedCheck = message.data.get('unordered')
+        allCheck = message.data.get('all') if response else None
+
+        LOG.info("number: " + str(numberCheck))
+        LOG.info("any: " + str(anyCheck))
+        LOG.info("unordered: " + str(unorderedCheck))
+        LOG.info("all: " + str(allCheck))
+
+
+        # check if more than a keyword was triggered
+        checkCount = sum(1 for check in [numberCheck, anyCheck, allCheck] if check)
 
         if unorderedCheck:
             self.ordered = False
@@ -183,7 +195,7 @@ class MultiplicationTables(MycroftSkill):
                 self.ordered = True
 
         # if no number is detected
-        if numberCheck is None and anyCheck is None:
+        if numberCheck is None and anyCheck is None and allCheck is None:
             if (response and self.askAgain) or not response:
                 self.set_context('InitTablesContext')
                 if response:
@@ -192,13 +204,19 @@ class MultiplicationTables(MycroftSkill):
                 else:
                     self.speak_dialog('which', expect_response=True)
         # both any and specific are asked. if numberCheck is == 0 it might be an erroneous table of 1 detection.
-        elif (numberCheck is not None and anyCheck is not None) and numberCheck != "1":
+        elif (checkCount == 2  and numberCheck != "1") or checkCount == 3:
             self.set_context('InitTablesContext')
             self.speak_dialog('which.table', expect_response=True)
         # skill detects only one of them
         else:
+            # all tables
+            if allCheck:
+                self.table = -1
+                self.speak_dialog('any.response')
+                # all tables is unordered by default
+                self.ordered = False
             # any table
-            if anyCheck:
+            elif anyCheck:
                 self.table = self.getRandomInt()
                 self.speak_dialog('number.any.response', {'number': str(self.table)})
             # specific table
@@ -227,7 +245,7 @@ class MultiplicationTables(MycroftSkill):
         self.handle_utterance(message, False)
 
 
-    @intent_handler(IntentBuilder('WhichTableIntent').optionally('any').optionally('numbers').optionally('unordered').optionally('ordered').require('InitTablesContext').build())
+    @intent_handler(IntentBuilder('WhichTableIntent').optionally('any').optionally('numbers').optionally('all').optionally('unordered').optionally('ordered').require('InitTablesContext').build())
     def handle_multiplication_tables_response(self, message):
         """
         User provides details about game.
