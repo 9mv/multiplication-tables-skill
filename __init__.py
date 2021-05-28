@@ -175,19 +175,13 @@ class MultiplicationTables(MycroftSkill):
     def handle_utterance(self, message, response):
         numberCheck = message.data.get('numbers')
         anyCheck = message.data.get('any')
-        unorderedCheck = message.data.get('unordered')
+        disorderedCheck = message.data.get('disordered')
         allCheck = message.data.get('all') if response else None
-
-        LOG.info("number: " + str(numberCheck))
-        LOG.info("any: " + str(anyCheck))
-        LOG.info("unordered: " + str(unorderedCheck))
-        LOG.info("all: " + str(allCheck))
-
 
         # check if more than a keyword was triggered
         checkCount = sum(1 for check in [numberCheck, anyCheck, allCheck] if check)
 
-        if unorderedCheck:
+        if disorderedCheck:
             self.ordered = False
 
         if response:
@@ -213,7 +207,7 @@ class MultiplicationTables(MycroftSkill):
             if allCheck:
                 self.table = -1
                 self.speak_dialog('any.response')
-                # all tables is unordered by default
+                # all tables is disordered by default
                 self.ordered = False
             # any table
             elif anyCheck:
@@ -236,7 +230,7 @@ class MultiplicationTables(MycroftSkill):
                 self.askOperation()
 
 
-    @intent_handler(IntentBuilder('InitTablesIntent').require('ask').require('tables').optionally('multiply').optionally('numbers').optionally('any').optionally('unordered'))
+    @intent_handler(IntentBuilder('InitTablesIntent').require('ask').require('tables').optionally('multiply').optionally('numbers').optionally('any').optionally('disordered'))
     def handle_multiplication_tables(self, message):
         """
         Initialize game. If user has not specified, Mycroft will ask which table.
@@ -245,7 +239,7 @@ class MultiplicationTables(MycroftSkill):
         self.handle_utterance(message, False)
 
 
-    @intent_handler(IntentBuilder('WhichTableIntent').optionally('any').optionally('numbers').optionally('all').optionally('unordered').optionally('ordered').require('InitTablesContext').build())
+    @intent_handler(IntentBuilder('WhichTableIntent').optionally('any').optionally('numbers').optionally('all').optionally('disordered').optionally('ordered').require('InitTablesContext').build())
     def handle_multiplication_tables_response(self, message):
         """
         User provides details about game.

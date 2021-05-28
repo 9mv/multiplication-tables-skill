@@ -1,1 +1,2 @@
-No, la resposta era {answer}. Has acabat la partida.
+No, the correct answer was {answer}. You have finished the game. You got {failed} multiplicacions wrong.
+Incorrect, the correct answer was {answer}. You have finished the game. You got {failed} multiplicacions wrong.
