@@ -8,6 +8,7 @@ Aquesta habilitat està pensada per a poder repassar les taules de multiplicar. 
 * "Pregunta'm les taules de multiplicar"
 * "Practicar la taula del 3"
 * "Pregunta'm qualsevol taula de multiplicar"
+* "Practiquem operacions de totes les taules"
 
 ## Credits
 Aleix Martínez (9mv)
