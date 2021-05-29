@@ -177,57 +177,60 @@ class MultiplicationTables(MycroftSkill):
         anyCheck = message.data.get('any')
         disorderedCheck = message.data.get('disordered')
         allCheck = message.data.get('all') if response else None
+        cancelCheck = message.data.get('finish')
+        
+        # detect a finish/cancel keyword
+        if not cancelCheck:  
+            # check if more than a keyword was triggered
+            checkCount = sum(1 for check in [numberCheck, anyCheck, allCheck] if check)
 
-        # check if more than a keyword was triggered
-        checkCount = sum(1 for check in [numberCheck, anyCheck, allCheck] if check)
-
-        if disorderedCheck:
-            self.ordered = False
-
-        if response:
-            if message.data.get('ordered'):
-                self.ordered = True
-
-        # if no number is detected
-        if numberCheck is None and anyCheck is None and allCheck is None:
-            if (response and self.askAgain) or not response:
-                self.set_context('InitTablesContext')
-                if response:
-                    self.askAgain = False
-                    self.speak_dialog('which.table', expect_response=True)
-                else:
-                    self.speak_dialog('which', expect_response=True)
-        # both any and specific are asked. if numberCheck is == 0 it might be an erroneous table of 1 detection.
-        elif (checkCount == 2  and numberCheck != "1") or checkCount == 3:
-            self.set_context('InitTablesContext')
-            self.speak_dialog('which.table', expect_response=True)
-        # skill detects only one of them
-        else:
-            # all tables
-            if allCheck:
-                self.table = -1
-                self.speak_dialog('all.response')
-                # all tables is disordered by default
+            if disorderedCheck:
                 self.ordered = False
-            # any table
-            elif anyCheck:
-                self.table = self.getRandomInt()
-                self.speak_dialog('number.any.response', {'number': str(self.table)})
-            # specific table
-            else:
-                self.table = extract_number(numberCheck, lang = self.lang)
-                if (self.table not in range(1,11)):
-                        self.set_context('InitTablesContext')
-                        self.speak_dialog('which.table', expect_response=True)
-                        self.table = 0
-                else:
-                    self.speak_dialog('number.response', {'number': str(self.table)})
 
-            if self.table:
-                time.sleep(5)
-                self.playing = True
-                self.initializeTables()
-                self.askOperation()
+            if response:
+                if message.data.get('ordered'):
+                    self.ordered = True
+
+            # if no number is detected
+            if numberCheck is None and anyCheck is None and allCheck is None:
+                if (response and self.askAgain) or not response:
+                    self.set_context('InitTablesContext')
+                    if response:
+                        self.askAgain = False
+                        self.speak_dialog('which.table', expect_response=True)
+                    else:
+                        self.speak_dialog('which', expect_response=True)
+            # both any and specific are asked. if numberCheck is == 0 it might be an erroneous table of 1 detection.
+            elif (checkCount == 2  and numberCheck != "1") or checkCount == 3:
+                self.set_context('InitTablesContext')
+                self.speak_dialog('which.table', expect_response=True)
+            # skill detects only one of them
+            else:
+                # all tables
+                if allCheck:
+                    self.table = -1
+                    self.speak_dialog('all.response')
+                    # all tables is disordered by default
+                    self.ordered = False
+                # any table
+                elif anyCheck:
+                    self.table = self.getRandomInt()
+                    self.speak_dialog('number.any.response', {'number': str(self.table)})
+                # specific table
+                else:
+                    self.table = extract_number(numberCheck, lang = self.lang)
+                    if (self.table not in range(1,11)):
+                            self.set_context('InitTablesContext')
+                            self.speak_dialog('which.table', expect_response=True)
+                            self.table = 0
+                    else:
+                        self.speak_dialog('number.response', {'number': str(self.table)})
+
+                if self.table:
+                    time.sleep(5)
+                    self.playing = True
+                    self.initializeTables()
+                    self.askOperation()
 
 
     @intent_handler("ask.multiplications.intent")
