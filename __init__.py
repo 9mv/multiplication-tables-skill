@@ -230,6 +230,21 @@ class MultiplicationTables(MycroftSkill):
                 self.askOperation()
 
 
+    @intent_handler("ask.multiplications.intent")
+    def handle_ask_multiplications(self, message):
+        """
+        Ask random multiplications recursively until 100 operations are asked or user cancels game.
+        """
+        self.table = -1
+        self.speak_dialog('all.response')
+        time.sleep(5)
+        self.playing = True
+        # Disordered operations by default
+        self.ordered = True if self.voc_match(message.data['utterance'], 'ordered') else False
+        self.initializeTables()
+        self.askOperation()
+
+
     @intent_handler(IntentBuilder('InitTablesIntent').require('ask').require('tables').optionally('multiply').optionally('numbers').optionally('any').optionally('disordered'))
     def handle_multiplication_tables(self, message):
         """
@@ -245,21 +260,6 @@ class MultiplicationTables(MycroftSkill):
         """
         self.remove_context('InitTablesContext')
         self.handle_utterance(message, True)
-
-
-    @intent_handler("ask.multiplications.intent")
-    def handle_ask_multiplications(self, message):
-        """
-        Ask random multiplications recursively until 100 operations are asked or user cancels game.
-        """
-        self.table = -1
-        self.speak_dialog('all.response')
-        time.sleep(5)
-        self.playing = True
-        # Disordered operations by default
-        self.ordered = True if self.voc_match(message.data['utterance'], 'ordered') else False
-        self.initializeTables()
-        self.askOperation()
 
 
 def create_skill():
