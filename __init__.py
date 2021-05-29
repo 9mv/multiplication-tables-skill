@@ -206,7 +206,7 @@ class MultiplicationTables(MycroftSkill):
             # all tables
             if allCheck:
                 self.table = -1
-                self.speak_dialog('any.response')
+                self.speak_dialog('all.response')
                 # all tables is disordered by default
                 self.ordered = False
             # any table
@@ -235,7 +235,6 @@ class MultiplicationTables(MycroftSkill):
         """
         Initialize game. If user has not specified, Mycroft will ask which table.
         """
-        LOG.info("PRIMER")
         self.handle_utterance(message, False)
 
 
@@ -244,7 +243,6 @@ class MultiplicationTables(MycroftSkill):
         """
         User provides details about game.
         """
-        LOG.info("SEGON")
         self.remove_context('InitTablesContext')
         self.handle_utterance(message, True)
 
@@ -254,11 +252,8 @@ class MultiplicationTables(MycroftSkill):
         """
         Ask random multiplications recursively until 100 operations are asked or user cancels game.
         """
-        LOG.info("TERCER")
-        LOG.info(self.MAX_RETRIES)
-
         self.table = -1
-        self.speak_dialog('any.response')
+        self.speak_dialog('all.response')
         time.sleep(5)
         self.playing = True
         # Disordered operations by default
